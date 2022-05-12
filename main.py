@@ -1,4 +1,5 @@
 import re
+from multiprocessing import Pool
 
 import pyranges as pr
 from tabulate import tabulate
@@ -24,6 +25,16 @@ def get_vcf_names(vcf_path: str):
     return vcf_names
 
 
+vcf_ranges: pr.PyRanges
+
+
+def calc_overlapped(gene_and_group: tuple[str, pd.DataFrame]) -> tuple[str, int]:
+    gene, group = gene_and_group
+    gene_ranges = pr.PyRanges(group[['Chromosome', 'Start', 'End']])
+    overlaps = len(vcf_ranges.overlap(gene_ranges))
+    return gene, overlaps
+
+
 def main():
     vcf_col_names = get_vcf_names(coriell_file)
     vcf_df = pd.read_csv(
@@ -34,6 +45,7 @@ def main():
     vcf_df['DP'] = vcf_df['INFO'].apply(lambda x: int(re.search(compiled_regex, x).group(1)))
     vcf_df['POS_END'] = vcf_df['POS'] + vcf_df['DP']
     vcf_df.rename(columns={'CHROM': 'Chromosome', 'POS': 'Start', 'POS_END': 'End'}, inplace=True)
+    global vcf_ranges
     vcf_ranges = pr.PyRanges(vcf_df[['Chromosome', 'Start', 'End']])
 
     refFlat_df = pd.read_csv(
@@ -41,15 +53,12 @@ def main():
         names=refFlat_cols, usecols=['geneName', 'chrom', 'txStart', 'txEnd'],
     )
     refFlat_df.rename(columns={'chrom': 'Chromosome', 'txStart': 'Start', 'txEnd': 'End'}, inplace=True)
-    refFlat_df_grouped = refFlat_df.groupby(['geneName'])
+    refFlat_df_grouped = list(refFlat_df.groupby(['geneName']))
 
-    gene_variant_counts = {}
-    for gene, group in tqdm.tqdm(refFlat_df_grouped):
-        gene_ranges = pr.PyRanges(group[['Chromosome', 'Start', 'End']])
-        overlaps = len(vcf_ranges.overlap(gene_ranges))
-        gene_variant_counts[gene] = gene_variant_counts.get(gene, 0) + overlaps
+    with Pool() as p:
+        results = list(tqdm.tqdm(p.imap(calc_overlapped, refFlat_df_grouped), total=len(refFlat_df_grouped)))
 
-    print(tabulate(gene_variant_counts.items()))
+    print(tabulate(results))
 
 
 if __name__ == '__main__':
