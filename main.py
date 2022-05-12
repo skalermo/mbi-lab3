@@ -49,7 +49,7 @@ def main():
         overlaps = len(vcf_ranges.overlap(gene_ranges))
         gene_variant_counts[gene] = gene_variant_counts.get(gene, 0) + overlaps
 
-    print(tabulate(gene_variant_counts, headers='keys', tablefmt='psg'))
+    print(tabulate(gene_variant_counts.items()))
 
 
 if __name__ == '__main__':
