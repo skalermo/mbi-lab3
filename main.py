@@ -1,5 +1,6 @@
 import re
 from multiprocessing import Pool
+from typing import Tuple
 
 import pyranges as pr
 from tabulate import tabulate
@@ -28,7 +29,7 @@ def get_vcf_names(vcf_path: str):
 vcf_ranges: pr.PyRanges
 
 
-def calc_overlapped(gene_and_group: tuple[str, pd.DataFrame]) -> tuple[str, int]:
+def calc_overlapped(gene_and_group: Tuple[str, pd.DataFrame]) -> Tuple[str, int]:
     gene, group = gene_and_group
     gene_ranges = pr.PyRanges(group[['Chromosome', 'Start', 'End']])
     overlaps = len(vcf_ranges.overlap(gene_ranges))
